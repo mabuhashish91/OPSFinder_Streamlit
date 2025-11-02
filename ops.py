@@ -9,24 +9,22 @@ def normalize_code_for_url(code: str) -> str:
     code = (code or "").strip()
     return code.replace(".", "-").lower()
 
-def fetch_ops_page(code: str) -> str:
+def fetch_ops_page(code: str, headers=None, timeout=20):
     slug = normalize_code_for_url(code)
     url = urljoin(BASE_URL, slug)
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; OPSWeb/1.0)"}
-    resp = requests.get(url, headers=headers, timeout=20)
+    default_headers = {"User-Agent": "Mozilla/5.0 (compatible; OPSStreamlit/1.0)"}
+    if headers:
+        default_headers.update(headers)
+    resp = requests.get(url, headers=default_headers, timeout=timeout)
     resp.raise_for_status()
-    return resp.text
+    return resp.text, url
 
 def parse_ops_page(html: str):
-    """
-    Returns (code_as_written, official_description, zusatz_list)
-    """
     soup = BeautifulSoup(html, "html.parser")
-    h1 = None
-    for tag in soup.find_all(["h1", "h2"]):
-        if "ops-code" in tag.get_text(strip=True).lower():
-            h1 = tag
-            break
+
+    # find "OPS-Code ..." heading
+    h1 = next((t for t in soup.find_all(["h1", "h2"])
+               if "ops-code" in t.get_text(strip=True).lower()), None)
 
     code_written = ""
     desc = ""
@@ -41,9 +39,8 @@ def parse_ops_page(html: str):
         nxt = h1.find_next()
         while nxt:
             t = nxt.get_text(" ", strip=True) if hasattr(nxt, "get_text") else ""
-            t_norm = (t or "").strip()
-            low = t_norm.lower()
-            if t_norm:
+            low = (t or "").lower()
+            if t:
                 if low.startswith("ops-code"):
                     pass
                 elif low.startswith("aus ") or low.startswith("hinweis") or low.startswith("bei ihnen"):
@@ -51,7 +48,7 @@ def parse_ops_page(html: str):
                 elif low.startswith("zusatzkennzeichen"):
                     break
                 else:
-                    desc = t_norm
+                    desc = t
                     break
             nxt = nxt.find_next()
 
@@ -67,11 +64,10 @@ def parse_ops_page(html: str):
 
     return code_written, desc, zusatz
 
-def extract_single(code: str):
+def extract_single(code: str, headers=None, timeout=20):
     try:
-        html = fetch_ops_page(code)
+        html, link = fetch_ops_page(code, headers=headers, timeout=timeout)
         code_written, desc, zusatz = parse_ops_page(html)
-        link = urljoin(BASE_URL, normalize_code_for_url(code))
         return {
             "Code": code_written or (code or "").strip(),
             "Description": desc,
