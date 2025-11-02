@@ -6,8 +6,8 @@ import streamlit as st
 from ops import extract_single
 
 # -------------------- Page --------------------
-st.set_page_config(page_title="OPS Extractor", layout="wide")
-st.title("OPS Extractor (gesund.bund.de)")
+st.set_page_config(page_title="OPS Finder", layout="wide")
+st.title("OPS Finder (gesund.bund.de)")
 
 # -------------------- Helpers --------------------
 def render_block(r):
